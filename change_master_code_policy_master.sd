@@ -1,0 +1,92 @@
+%%
+/*
+Date Written: 07/11/2016
+
+Name: "delete_policy_policy_management_info"
+
+Copyright (c) 2016, SCIPS.com Inc.
+
+Modify
+Date                   By                  Comment
+--------------------------------------------------------------
+03/24/2011             rel                 The program will delete policy_management information by type
+==============================================================
+*/
+
+Program
+        Name = "delete_policy_policy_management" ;
+        Type = "File" ;
+        Domain = "dummy" ;
+        Padcharacter = Space ;
+
+        wdate l_run_date;
+        string l_trans_type[50] = "",
+               l_enter[1],
+               l_sfs[3];
+        unsigned ascii number l_counter[5];
+        unsigned ascii number l_agent_no[4];
+
+Initialisation
+  -- l_run_date  = Date(COMMANDLINE[1,8])
+  l_trans_type    = commandline[10,59]
+  l_agent_no = val(commandline[1,4])
+  if l_agent_no <> 0 then 
+  {
+    do update_agent_master_code
+  }
+
+update
+
+screen exit
+write("%c%s%X",04001,"number deleted =",l_counter)
+
+procedure definition
+
+Procedure update_agent_master_code
+
+BEGIN
+  access POLICY_MANAGE_SETUP,
+     set POLICY_MANAGE_SETUP:company_id = "FARMERS", generic
+
+  access policy_management,
+     set policy_management:policy_no = "", approximate    --gets to begging of file
+
+  l_sfs = "SFS"
+  access sfsdefault, set sfsdefault:sfs_code = l_sfs
+
+  access sfsagent, set sfsagent:company_id = sfsdefault:company_id, 
+                       sfsagent:agent_no   = l_agent_no
+
+  if sfsagent:agent_no = l_agent_no then 
+  {
+ 
+  l_counter = 0
+  while policy_management:errornumber = 0
+    {
+      if policy_management:agent_no = l_agent_no then 
+        {
+          write("%c<014>%s%x",01001,"policy_management:Transaction_type", policy_management:Transaction_type)
+          write("%c%s%X",02001,"policy_management:run_date", policy_management:run_date)
+          write("%c%s%X",03001,"policy_management:file_location",policy_management:document_name)
+          Read (23,1,"Press Enter to Continue ",L_ENTER,1)
+          l_counter = l_counter + 1
+          access policy_management_alt,  policy_management_alt:POLICY_NO = policy_management:POLICY_NO,
+                                         policy_management_alt:POL_YEAR  = policy_management:pol_year,
+                                         policy_management_alt:END_SEQUENCE = policy_management:end_sequence, 
+                                         policy_management_alt:SUB_CODE = policy_management:sub_code
+
+          if policy_management_alt:errornumber = 0 then 
+          {
+             change policy_management_alt
+             {
+                policy_management_alt:AGENT_MASTER_CODE = sfsagent:AGENT_MASTER_CODE
+             }
+          }
+        }
+      next policy_management
+    }
+  } -- end of agent number verify
+END
+
+
+End
